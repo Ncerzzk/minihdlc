@@ -110,33 +110,44 @@ void minihdlc_char_receiver(uint8_t data) {
 
 /* Wrap given data in HDLC frame and send it out byte at a time*/
 void minihdlc_send_frame(const uint8_t *frame_buffer, uint8_t frame_length) {
+	static uint8_t send_buffer[MINIHDLC_MAX_FRAME_LENGTH + 4];
+	minihdlc_serialize(send_buffer,frame_buffer, frame_length);
+	for (uint16_t i = 0; i < frame_length + 4; i++) {
+		minihdlc_sendchar(send_buffer[i]);
+	}
+}
+
+/* Serialize the frame into a buffer rather than directly sending */
+uint16_t minihdlc_serialize(uint8_t *tgt, const uint8_t *frame_buffer, uint16_t frame_length){
 	uint8_t data;
 	uint16_t fcs = CRC16_CCITT_INIT_VAL;
 
-	minihdlc_sendchar((uint8_t) FRAME_BOUNDARY_OCTET);
+	uint16_t count = 0;
+	tgt[count ++] = ((uint8_t) FRAME_BOUNDARY_OCTET);
 
 	while (frame_length) {
 		data = *frame_buffer++;
 		fcs = _crc_ccitt_update(fcs, data);
 		if ((data == CONTROL_ESCAPE_OCTET) || (data == FRAME_BOUNDARY_OCTET)) {
-			minihdlc_sendchar((uint8_t) CONTROL_ESCAPE_OCTET);
+			tgt[count ++] =((uint8_t) CONTROL_ESCAPE_OCTET);
 			data ^= INVERT_OCTET;
 		}
-		minihdlc_sendchar((uint8_t) data);
+		tgt[count ++] =((uint8_t) data);
 		frame_length--;
 	}
 	data = low(fcs);
 	if ((data == CONTROL_ESCAPE_OCTET) || (data == FRAME_BOUNDARY_OCTET)) {
-		minihdlc_sendchar((uint8_t) CONTROL_ESCAPE_OCTET);
+		tgt[count ++] =((uint8_t) CONTROL_ESCAPE_OCTET);
 		data ^= (uint8_t) INVERT_OCTET;
 	}
-	minihdlc_sendchar((uint8_t) data);
+	tgt[count ++] =((uint8_t) data);
 	data = high(fcs);
 	if ((data == CONTROL_ESCAPE_OCTET) || (data == FRAME_BOUNDARY_OCTET)) {
-		minihdlc_sendchar(CONTROL_ESCAPE_OCTET);
+		tgt[count ++] =(CONTROL_ESCAPE_OCTET);
 		data ^= INVERT_OCTET;
 	}
-	minihdlc_sendchar(data);
-	minihdlc_sendchar(FRAME_BOUNDARY_OCTET);
-}
+	tgt[count ++] =(data);
+	tgt[count ++] =(FRAME_BOUNDARY_OCTET);
 
+	return count;
+}

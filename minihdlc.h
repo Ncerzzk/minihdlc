@@ -26,4 +26,7 @@ void minihdlc_char_receiver(uint8_t data);
 // encode frame and call send_char_function to send the data.
 void minihdlc_send_frame(const uint8_t *frame_buffer, uint8_t frame_length);
 
+// serialize the frame into a byte array
+uint16_t minihdlc_serialize(uint8_t *tgt, const uint8_t *frame_buffer, uint16_t frame_length);
+
 #endif
